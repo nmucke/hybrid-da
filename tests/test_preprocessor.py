@@ -1,21 +1,30 @@
 import torch
 import torch.nn as nn
+import yaml
 from hybrid_da.preprocessor import Preprocessor
 from hybrid_da.dataset import XarrayDataset
 import pdb
 
+
+# open yml file
+with open("configs/variables.yml", "r") as ymlfile:
+    config = yaml.load(ymlfile, Loader=yaml.FullLoader)
+
 data_folder = 'data/raw'
-dataset = XarrayDataset(data_folder, num_samples=4)
+dataset = XarrayDataset(
+    data_folder, 
+    num_samples=4, 
+    variable_config=config['variable_names']
+)
 dataloader = torch.utils.data.DataLoader(
     dataset, 
     batch_size=2, 
-    shuffle=False, 
+    shuffle=False,
     drop_last=False
 )
 
 feature_preprocessor = Preprocessor(no_transform_vars=["x_y_z", "time"])
 target_preprocessor = Preprocessor()
-
 
 original_features = {
     "porosity": {'min': 1e12, 'max': -1e12},

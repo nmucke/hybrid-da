@@ -1,0 +1,23 @@
+
+dimensions:
+  Nx: 100
+  Ny: 100
+  Nz: 2
+  Nt: 100
+
+variable_names:
+  features:
+    x: "xc"
+    y: "yc"
+    z: "zc"
+    porosity: "POROS"
+    permeability: "PERMI"
+    youngs_modulus: "POROS"
+    poissons_ratio: "POROS"
+    injection_rate: "Gas Rate SC"
+  targets:
+    pressure: "PRES"
+    displacement_x: "DISPLX"
+    displacement_y: "DISPLY"
+    displacement_z: "DISPLZ"
+    co2_molar_fraction: "Z(1)"

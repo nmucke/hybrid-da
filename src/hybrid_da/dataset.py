@@ -6,22 +6,29 @@ import torch
 import pdb
 from torch.utils.data import DataLoader, Dataset
 import xarray as xr
+import yaml
 
 torch.set_default_dtype(torch.float32)
 
-X_VARIABLE_NAME = "xc"
-Y_VARIABLE_NAME = "yc"
-Z_VARIABLE_NAME = "zc"
-POROSITY_VARIABLE_NAME = "POROS"
-PERMEABILITY_VARIABLE_NAME = "PERMI"
-YOUNGS_MODULUS_VARIABLE_NAME = "POROS"
-POISSONS_RATIO_VARIABLE_NAME = "POROS"
-INJECTION_RATE_VARIABLE_NAME = "Gas Rate SC"
-PRESSURE_VARIABLE_NAME = "PRES"
-DISPLACEMENT_X_VARIABLE_NAME = "DISPLX"
-DISPLACEMENT_Y_VARIABLE_NAME = "DISPLY"
-DISPLACEMENT_Z_VARIABLE_NAME = "DISPLZ"
-CO2_MOLAR_FRACTION_VARIABLE_NAME = "Z(1)"
+# open yml file
+with open("configs/variables.yml", "r") as ymlfile:
+    config = yaml.load(ymlfile, Loader=yaml.FullLoader)
+
+'''
+X_VARIABLE_NAME = config['variable_names']['x']
+Y_VARIABLE_NAME = config['variable_names']['y']
+Z_VARIABLE_NAME = config['variable_names']['z']
+POROSITY_VARIABLE_NAME = config['variable_names']['porosity']
+PERMEABILITY_VARIABLE_NAME = config['variable_names']['permeability']
+YOUNGS_MODULUS_VARIABLE_NAME = config['variable_names']['youngs_modulus']
+POISSONS_RATIO_VARIABLE_NAME = config['variable_names']['poissons_ratio']
+INJECTION_RATE_VARIABLE_NAME = config['variable_names']['injection_rate']
+PRESSURE_VARIABLE_NAME = config['variable_names']['pressure']
+DISPLACEMENT_X_VARIABLE_NAME = config['variable_names']['displacement_x']
+DISPLACEMENT_Y_VARIABLE_NAME = config['variable_names']['displacement_y']
+DISPLACEMENT_Z_VARIABLE_NAME = config['variable_names']['displacement_z']
+CO2_MOLAR_FRACTION_VARIABLE_NAME = config['variable_names']['co2_molar_fraction']
+'''
 
 def get_xarray_data(data_path: Path) -> xr.core.dataset.Dataset:
     return xr.load_dataset(data_path, engine='netcdf4')
@@ -35,6 +42,12 @@ def get_x_y_z(data: xr.core.dataset.Dataset) -> torch.Tensor:
     x_y_z = torch.stack([x, y, z], dim=0)
 
     return x_y_z
+
+def get_variable(
+    data: xr.core.dataset.Dataset,
+    variable_names: str,
+) -> torch.Tensor:
+    return torch.tensor(data[variable_names].values, dtype=torch.get_default_dtype())
 
 def get_porosity(data: xr.core.dataset.Dataset) -> torch.Tensor:
     return torch.Tensor(data[POROSITY_VARIABLE_NAME].values)
@@ -95,32 +108,34 @@ class XarrayDataset(Dataset[Any]):
     def __init__(
         self,
         data_folder: Path,
-        num_samples: int = 10,   
+        variable_config: dict,
+        num_samples: int = 10,  
     ):
         self.data_folder = data_folder
         self.num_samples = num_samples
+        self.variable_config = variable_config
 
     def __len__(self):
         return self.num_samples
     
     def _get_features(self, data: xr.core.dataset.Dataset) -> dict:
-        x_y_z = get_x_y_z(data)
-        porosity = get_porosity(data)
-        permeability = get_permeability(data)
-        youngs_modulus = get_youngs_modulus(data)
-        poissons_ratio = get_poissons_ratio(data)
-        injection_rate = get_injection_rate(data)
+
+        for name, variable_name in self.variable_config['features'].items():
+            globals()[name] = get_variable(data, variable_name)
+
+        x_y_z = torch.stack([x, y, z], dim=0)
+
         time = torch.arange(0, injection_rate.shape[0])
 
-        # Replace all NaNs with ones
-        porosity[torch.isnan(porosity)] = 1
-        permeability[torch.isnan(permeability)] = 1
-        youngs_modulus[torch.isnan(youngs_modulus)] = 1
-        poissons_ratio[torch.isnan(poissons_ratio)] = 1
-        injection_rate[torch.isnan(injection_rate)] = 1
-        time[torch.isnan(time)] = 1
-        x_y_z[torch.isnan(x_y_z)] = 1
-
+        x[x.isnan()] = 0
+        y[y.isnan()] = 0
+        z[z.isnan()] = 0
+        porosity[porosity.isnan()] = 0
+        permeability[permeability.isnan()] = 0
+        youngs_modulus[youngs_modulus.isnan()] = 0
+        poissons_ratio[poissons_ratio.isnan()] = 0
+        injection_rate[injection_rate.isnan()] = 0
+        
         features = {
             "porosity": porosity,
             "permeability": permeability,
@@ -134,11 +149,9 @@ class XarrayDataset(Dataset[Any]):
         return features
 
     def _get_targets(self, data: xr.core.dataset.Dataset) -> dict:
-        pressure = get_pressure(data)
-        co2_molar_fraction = get_co2_molar_fraction(data)
-        displacement_x = get_displacement_x(data)
-        displacement_y = get_displacement_y(data)
-        displacement_z = get_displacement_z(data)
+
+        for name, variable_name in self.variable_config['targets'].items():
+            globals()[name] = get_variable(data, variable_name)
         
         # Replace all NaNs with ones
         pressure[torch.isnan(pressure)] = 1

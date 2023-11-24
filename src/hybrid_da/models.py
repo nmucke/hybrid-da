@@ -1,17 +1,37 @@
 import torch
+import yaml
+
+# open yml file
+with open("configs/variable_names.yml", "r") as ymlfile:
+    config = yaml.load(ymlfile, Loader=yaml.FullLoader)
 
 
-class LinearNet(torch.nn.Module):
-    def __init__(self):
+class SpatialEncoder(torch.nn.Module):
+    def __init__(
+        self,
+        input_channels: int,
+        output_channels: int,
+        hidden_channels: int,
+    ) -> None:
         super().__init__()
 
-        self.network = torch.nn.Sequential(
-            torch.nn.Flatten(),
-            torch.nn.Linear(in_features=28 * 28, out_features=32),
-            torch.nn.ReLU(),
-            torch.nn.Linear(in_features=32, out_features=10),
-            torch.nn.Softmax(dim=1),
-        )
+        self.input_channels = input_channels
+        self.output_channels = output_channels
+        self.hidden_channels = hidden_channels
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.network(x)
+        return 
+
+class ForwardModel(torch.nn.Module):
+    def __init__(
+        self,
+        variable_config: dict,
+    ) -> None:
+        super().__init__()
+
+        self.variable_config = variable_config
+        
+
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return 
