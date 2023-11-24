@@ -1,4 +1,4 @@
-# Subsurface DA with Generative Models
+# Hybrid DA
 
 This is the codebase for the project "hybrid_da". It is set up as an installable Python package. 
 
