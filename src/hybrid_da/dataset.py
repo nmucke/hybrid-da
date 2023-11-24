@@ -112,6 +112,15 @@ class XarrayDataset(Dataset[Any]):
         injection_rate = get_injection_rate(data)
         time = torch.arange(0, injection_rate.shape[0])
 
+        # Replace all NaNs with ones
+        porosity[torch.isnan(porosity)] = 1
+        permeability[torch.isnan(permeability)] = 1
+        youngs_modulus[torch.isnan(youngs_modulus)] = 1
+        poissons_ratio[torch.isnan(poissons_ratio)] = 1
+        injection_rate[torch.isnan(injection_rate)] = 1
+        time[torch.isnan(time)] = 1
+        x_y_z[torch.isnan(x_y_z)] = 1
+
         features = {
             "porosity": porosity,
             "permeability": permeability,
@@ -130,6 +139,13 @@ class XarrayDataset(Dataset[Any]):
         displacement_x = get_displacement_x(data)
         displacement_y = get_displacement_y(data)
         displacement_z = get_displacement_z(data)
+        
+        # Replace all NaNs with ones
+        pressure[torch.isnan(pressure)] = 1
+        co2_molar_fraction[torch.isnan(co2_molar_fraction)] = 1
+        displacement_x[torch.isnan(displacement_x)] = 1
+        displacement_y[torch.isnan(displacement_y)] = 1
+        displacement_z[torch.isnan(displacement_z)] = 1
 
         targets = {
             "pressure": pressure,
