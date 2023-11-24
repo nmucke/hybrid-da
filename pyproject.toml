@@ -1,0 +1,25 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "hybrid-da"
+version = "0.1.0"
+license = {file = "LICENSE.txt"}
+description = "A package for hybrid data assimilation and optimal sensor placement"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+]
+
+[project.urls]
+"Homepage" = "https://github.com/nmucke/hybrid-da"
+
+[tool.pytest.ini_options]
+addopts = [
+    "--import-mode=importlib",
+]
+
+[tool.coverage.run]
+source = ["hybrid_da"]
+omit = ["*/__init__.py"]

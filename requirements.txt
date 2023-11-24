@@ -1,0 +1,14 @@
+
+# Python: 3.10.9
+torch
+torchvision 
+torchaudio
+numpy
+pandas
+scikit-learn
+matplotlib
+tensorboard
+mlflow
+tqdm
+pillow
+xarray
