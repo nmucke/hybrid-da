@@ -3,70 +3,167 @@ from typing import Any
 
 import numpy as np
 import torch
+import pdb
 from torch.utils.data import DataLoader, Dataset
+import xarray as xr
 
-from ds.load_data import load_image_data, load_label_data
+torch.set_default_dtype(torch.float32)
+
+X_VARIABLE_NAME = "xc"
+Y_VARIABLE_NAME = "yc"
+Z_VARIABLE_NAME = "zc"
+POROSITY_VARIABLE_NAME = "POROS"
+PERMEABILITY_VARIABLE_NAME = "PERMI"
+YOUNGS_MODULUS_VARIABLE_NAME = "POROS"
+POISSONS_RATIO_VARIABLE_NAME = "POROS"
+INJECTION_RATE_VARIABLE_NAME = "Gas Rate SC"
+PRESSURE_VARIABLE_NAME = "PRES"
+DISPLACEMENT_X_VARIABLE_NAME = "DISPLX"
+DISPLACEMENT_Y_VARIABLE_NAME = "DISPLY"
+DISPLACEMENT_Z_VARIABLE_NAME = "DISPLZ"
+CO2_MOLAR_FRACTION_VARIABLE_NAME = "Z(1)"
+
+def get_xarray_data(data_path: Path) -> xr.core.dataset.Dataset:
+    return xr.load_dataset(data_path, engine='netcdf4')
+
+def get_x_y_z(data: xr.core.dataset.Dataset) -> torch.Tensor:
+
+    x = torch.tensor(data[X_VARIABLE_NAME].values, dtype=torch.get_default_dtype())
+    y = torch.tensor(data[Y_VARIABLE_NAME].values, dtype=torch.get_default_dtype())
+    z = torch.tensor(data[Z_VARIABLE_NAME].values, dtype=torch.get_default_dtype())
+
+    x_y_z = torch.stack([x, y, z], dim=0)
+
+    return x_y_z
+
+def get_porosity(data: xr.core.dataset.Dataset) -> torch.Tensor:
+    return torch.Tensor(data[POROSITY_VARIABLE_NAME].values)
+
+def get_permeability(data: xr.core.dataset.Dataset) -> torch.Tensor:
+    return torch.Tensor(data[PERMEABILITY_VARIABLE_NAME].values)
+
+def get_youngs_modulus(data: xr.core.dataset.Dataset) -> torch.Tensor:
+    return torch.Tensor(data[YOUNGS_MODULUS_VARIABLE_NAME].values)
+
+def get_poissons_ratio(data: xr.core.dataset.Dataset) -> torch.Tensor:
+    return torch.Tensor(data[POISSONS_RATIO_VARIABLE_NAME].values)
+
+def get_injection_rate(data: xr.core.dataset.Dataset) -> torch.Tensor:
+    return torch.Tensor(data[INJECTION_RATE_VARIABLE_NAME].values)
+
+def get_pressure(data: xr.core.dataset.Dataset) -> torch.Tensor:
+    return torch.Tensor(data[PRESSURE_VARIABLE_NAME].values)
+
+def get_displacement_x(data: xr.core.dataset.Dataset) -> torch.Tensor:
+    return torch.Tensor(data[DISPLACEMENT_X_VARIABLE_NAME].values)
+
+def get_displacement_y(data: xr.core.dataset.Dataset) -> torch.Tensor:
+    return torch.Tensor(data[DISPLACEMENT_Y_VARIABLE_NAME].values)
+
+def get_displacement_z(data: xr.core.dataset.Dataset) -> torch.Tensor:
+    return torch.Tensor(data[DISPLACEMENT_Z_VARIABLE_NAME].values)
+
+def get_co2_molar_fraction(data: xr.core.dataset.Dataset) -> torch.Tensor:
+    return torch.Tensor(data[CO2_MOLAR_FRACTION_VARIABLE_NAME].values)
 
 
-class MNIST(Dataset[Any]):
-    idx: int  # requested data index
-    x: torch.Tensor
-    y: torch.Tensor
+class XarrayDataset(Dataset[Any]):
+    """
+    A torch dataset that loads data from an xarray dataset.
 
-    TRAIN_MAX = 255.0
-    TRAIN_NORMALIZED_MEAN = 0.1306604762738429
-    TRAIN_NORMALIZED_STDEV = 0.3081078038564622
+    From a path to a folder it loads the xarray correspoonding to the id of the individual xarray. 
 
-    def __init__(self, data: np.ndarray, targets: np.ndarray):
-        if len(data) != len(targets):
-            raise ValueError(
-                "data and targets must be the same length. "
-                f"{len(data)} != {len(targets)}"
-            )
+    The items it returns are two dictionaries, one for the features and one for the targets.
 
-        self.data = data
-        self.targets = targets
+    Features consits of the following variables:
+        - porosity (Nx, Ny, Nz)
+        - permebility (Nx, Ny, Nz)
+        - youngs_modulus (Nx, Ny, Nz)
+        - poissons_ratio (Nx, Ny, Nz)
+        - injection_rate (Nt)
+        - time (Nt)
+        - x_y_z (Nx, Ny, Nz)
+
+    Target consits of the following variables:
+        - pressure (Nx, Ny, Nz, Nt)
+        - displacement_x (Nx, Ny, Nz, Nt)
+        - displacement_y (Nx, Ny, Nz, Nt)
+        - displacement_z (Nx, Ny, Nz, Nt)
+        - co2_molar_fraction (Nx, Ny, Nz, Nt)
+    """
+
+    def __init__(
+        self,
+        data_folder: Path,
+        num_samples: int = 10,   
+    ):
+        self.data_folder = data_folder
+        self.num_samples = num_samples
 
     def __len__(self):
-        return len(self.data)
+        return self.num_samples
+    
+    def _get_features(self, data: xr.core.dataset.Dataset) -> dict:
+        x_y_z = get_x_y_z(data)
+        porosity = get_porosity(data)
+        permeability = get_permeability(data)
+        youngs_modulus = get_youngs_modulus(data)
+        poissons_ratio = get_poissons_ratio(data)
+        injection_rate = get_injection_rate(data)
+        time = torch.arange(0, injection_rate.shape[0])
 
-    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
-        x = self.get_x(idx)
-        y = self.get_y(idx)
-        return x, y
+        features = {
+            "porosity": porosity,
+            "permeability": permeability,
+            "youngs_modulus": youngs_modulus,
+            "poissons_ratio": poissons_ratio,
+            "injection_rate": injection_rate,
+            "x_y_z": x_y_z,
+            "time": time,
+        }
 
-    def get_x(self, idx: int):
-        self.idx = idx
-        self.preprocess_x()
-        return self.x
+        return features
 
-    def preprocess_x(self):
-        self.x = self.data[self.idx].copy().astype(np.float64)
-        self.x /= self.TRAIN_MAX
-        self.x -= self.TRAIN_NORMALIZED_MEAN
-        self.x /= self.TRAIN_NORMALIZED_STDEV
-        self.x = self.x.astype(np.float32)
-        self.x = torch.from_numpy(self.x)
-        self.x = self.x.unsqueeze(0)
+    def _get_targets(self, data: xr.core.dataset.Dataset) -> dict:
+        pressure = get_pressure(data)
+        co2_molar_fraction = get_co2_molar_fraction(data)
+        displacement_x = get_displacement_x(data)
+        displacement_y = get_displacement_y(data)
+        displacement_z = get_displacement_z(data)
 
-    def get_y(self, idx: int):
-        self.idx = idx
-        self.preprocess_y()
-        return self.y
+        targets = {
+            "pressure": pressure,
+            "co2_molar_fraction": co2_molar_fraction,
+            "displacement_x": displacement_x,
+            "displacement_y": displacement_y,
+            "displacement_z": displacement_z,
+        }
 
-    def preprocess_y(self):
-        self.y = self.targets[self.idx]
-        self.y = torch.tensor(self.y, dtype=torch.long)
+        return targets
+
+    def __getitem__(self, idx: int) -> tuple[dict, dict]:
+        data_path =  f"{self.data_folder}/sample_{idx}.nc"
+        data = get_xarray_data(data_path)
+
+        features = self._get_features(data)
+
+        targets = self._get_targets(data)
+
+        return features, targets
 
 
-def create_dataloader(
-    batch_size: int, data_path: Path, label_path: Path, shuffle: bool = True
-) -> DataLoader[Any]:
-    data = load_image_data(data_path)
-    label_data = load_label_data(label_path)
-    return DataLoader(
-        dataset=MNIST(data, label_data),
-        batch_size=batch_size,
-        shuffle=shuffle,
-        num_workers=0,
-    )
+if __name__ == "__main__":
+
+    data_folder = 'data/raw'
+    dataset = XarrayDataset(data_folder)
+
+    features, targets = dataset.__getitem__(0)
+
+    print("FEATURES:")
+    for key, value in features.items():
+        print(f'{key}, size: {value.shape}, dtype: {value.dtype}')
+
+    print()
+    print("TARGETS:")
+    for key, value in targets.items():
+        print(f'{key}, size: {value.shape}, dtype: {value.dtype}')

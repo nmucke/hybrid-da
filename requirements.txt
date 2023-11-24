@@ -12,3 +12,5 @@ mlflow
 tqdm
 pillow
 xarray
+netcdf4
+scipy
